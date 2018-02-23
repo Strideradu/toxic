@@ -45,7 +45,7 @@ def main():
         train_data["comment_text"] = translated_data
 
         result_path = os.path.join(args.result_path, "train_" + language + ".csv")
-        train_data.to_csv(result_path, index=False)
+        train_data.to_csv(result_path, index=False, header = False)
 
 
 if __name__ == "__main__":

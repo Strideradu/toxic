@@ -1,4 +1,4 @@
-from toxic.model import get_model
+from toxic.model import get_model, get_GRU_pool_con, get_GRU_GlobalMaxAve, get_GRU_GlobalMax_Ave
 from toxic.nltk_utils import tokenize_sentences
 from toxic.train_utils import train_folds
 from toxic.embedding_utils import read_embedding_list, clear_embedding_list, convert_tokens_to_ids
@@ -41,7 +41,7 @@ def main():
     print("Loading data...")
     train_data = pd.read_csv(args.train_file_path)
     test_data = pd.read_csv(args.test_file_path)
-
+    """
     list_sentences_train = train_data["comment_text"].fillna(NAN_WORD).values
     list_sentences_test = test_data["comment_text"].fillna(NAN_WORD).values
     y_train = train_data[CLASSES].values
@@ -81,8 +81,33 @@ def main():
         args.sentences_length)
     X_train = np.array(train_list_of_token_ids)
     X_test = np.array(test_list_of_token_ids)
+    """
+    embed_path = os.path.join(args.embedding_path, 'embeddings.npz')
+    data = np.load(embed_path)
+    embedding_matrix = data['arr_0']
 
+    data_path = os.path.join(args.embedding_path, 'train.npz')
+    data = np.load(data_path)
+    X_train = data['arr_0']
+
+    data_path = os.path.join(args.embedding_path, 'test.npz')
+    data = np.load(data_path)
+    X_test = data['arr_0']
+
+    data_path = os.path.join(args.embedding_path, 'label.npz')
+    data = np.load(data_path)
+    y_train = data['arr_0']
+
+
+    """
     get_model_func = lambda: get_model(
+        embedding_matrix,
+        args.sentences_length,
+        args.dropout_rate,
+        args.recurrent_units,
+        args.dense_size)
+    """
+    get_model_func = lambda: get_GRU_GlobalMax_Ave(
         embedding_matrix,
         args.sentences_length,
         args.dropout_rate,
