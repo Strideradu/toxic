@@ -1,4 +1,4 @@
-from toxic.model import get_model, get_GRU_pool_con, get_GRU_GlobalMaxAve, get_GRU_GlobalMax_Ave
+from toxic.model import *
 from toxic.nltk_utils import tokenize_sentences
 from toxic.train_utils import train_folds
 from toxic.embedding_utils import read_embedding_list, clear_embedding_list, convert_tokens_to_ids
@@ -7,7 +7,6 @@ import argparse
 import numpy as np
 import os
 import pandas as pd
-
 
 UNKNOWN_WORD = "_UNK_"
 END_WORD = "_END_"
@@ -32,6 +31,7 @@ def main():
     parser.add_argument("--dropout-rate", type=float, default=0.3)
     parser.add_argument("--dense-size", type=int, default=32)
     parser.add_argument("--fold-count", type=int, default=10)
+    parser.add_argument("--aug-count", type=int, default=1)
 
     args = parser.parse_args()
 
@@ -41,47 +41,7 @@ def main():
     print("Loading data...")
     train_data = pd.read_csv(args.train_file_path)
     test_data = pd.read_csv(args.test_file_path)
-    """
-    list_sentences_train = train_data["comment_text"].fillna(NAN_WORD).values
-    list_sentences_test = test_data["comment_text"].fillna(NAN_WORD).values
-    y_train = train_data[CLASSES].values
 
-    print("Tokenizing sentences in train set...")
-    tokenized_sentences_train, words_dict = tokenize_sentences(list_sentences_train, {})
-
-    print("Tokenizing sentences in test set...")
-    tokenized_sentences_test, words_dict = tokenize_sentences(list_sentences_test, words_dict)
-
-    words_dict[UNKNOWN_WORD] = len(words_dict)
-
-    print("Loading embeddings...")
-    embedding_list, embedding_word_dict = read_embedding_list(args.embedding_path)
-    embedding_size = len(embedding_list[0])
-
-    print("Preparing data...")
-    embedding_list, embedding_word_dict = clear_embedding_list(embedding_list, embedding_word_dict, words_dict)
-
-    embedding_word_dict[UNKNOWN_WORD] = len(embedding_word_dict)
-    embedding_list.append([0.] * embedding_size)
-    embedding_word_dict[END_WORD] = len(embedding_word_dict)
-    embedding_list.append([-1.] * embedding_size)
-
-    embedding_matrix = np.array(embedding_list)
-
-    id_to_word = dict((id, word) for word, id in words_dict.items())
-    train_list_of_token_ids = convert_tokens_to_ids(
-        tokenized_sentences_train,
-        id_to_word,
-        embedding_word_dict,
-        args.sentences_length)
-    test_list_of_token_ids = convert_tokens_to_ids(
-        tokenized_sentences_test,
-        id_to_word,
-        embedding_word_dict,
-        args.sentences_length)
-    X_train = np.array(train_list_of_token_ids)
-    X_test = np.array(test_list_of_token_ids)
-    """
     embed_path = os.path.join(args.embedding_path, 'embeddings.npz')
     data = np.load(embed_path)
     embedding_matrix = data['arr_0']
@@ -99,15 +59,7 @@ def main():
     y_train = data['arr_0']
 
 
-    """
-    get_model_func = lambda: get_model(
-        embedding_matrix,
-        args.sentences_length,
-        args.dropout_rate,
-        args.recurrent_units,
-        args.dense_size)
-    """
-    get_model_func = lambda: get_GRU_GlobalMax_Ave(
+    get_model_func = lambda: get_LSTMGRU_GlobalMaxAve(
         embedding_matrix,
         args.sentences_length,
         args.dropout_rate,
@@ -115,7 +67,7 @@ def main():
         args.dense_size)
 
     print("Starting to train models...")
-    models = train_folds(X_train, y_train, args.fold_count, args.batch_size, get_model_func)
+    models, train_preds = train_folds(X_train, y_train, args.fold_count, args.batch_size, get_model_func, aug=args.aug_count)
 
     if not os.path.exists(args.result_path):
         os.mkdir(args.result_path)
@@ -146,6 +98,16 @@ def main():
     test_predicts = test_predicts[["id"] + CLASSES]
     submit_path = os.path.join(args.result_path, "submit")
     test_predicts.to_csv(submit_path, index=False)
+
+    train_ids =train_data["id"].values
+    train_ids = train_ids.reshape((len(train_ids), 1))
+
+    train_predicts = pd.DataFrame(data=train_preds, columns=CLASSES)
+    train_predicts["id"] = train_ids
+    train_predicts = train_predicts[["id"] + CLASSES]
+    valid_path = os.path.join(args.result_path, "valid")
+    train_predicts.to_csv(valid_path, index=False)
+
 
 if __name__ == "__main__":
     main()
